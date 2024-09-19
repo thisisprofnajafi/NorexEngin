@@ -1,0 +1,36 @@
+name: Deploy GoLang Project via FTP
+
+# Trigger the workflow on push to the main branch
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Setup Go environment
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.22.6' # Update this with your Go version
+
+      # Build the Go project
+      - name: Build Go project
+        run: go build -o myapp .
+
+      # Upload files via FTP
+      - name: FTP Deploy
+        uses: SamKirkland/FTP-Deploy-Action@4.3.0
+        with:
+          server: ${{ secrets.FTP_SERVER }}
+          username: ${{ secrets.FTP_USERNAME }}
+          password: ${{ secrets.FTP_PASSWORD }}
+          protocol: ftps
+          local-dir: ./ # Change to the directory containing the Go build files
+          server-dir: /path/to/your/server/directory # Remote server directory
+          dangerous-clean-slate: true # Optionally cleans the remote directory
