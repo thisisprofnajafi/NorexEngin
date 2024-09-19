@@ -30,7 +30,5 @@ jobs:
           server: ${{ secrets.FTP_SERVER }}
           username: ${{ secrets.FTP_USERNAME }}
           password: ${{ secrets.FTP_PASSWORD }}
-          protocol: ftps
           local-dir: ./ # Change to the directory containing the Go build files
-          server-dir: /path/to/your/server/directory # Remote server directory
-          dangerous-clean-slate: true # Optionally cleans the remote directory
+          server-dir: /app/ # Remote server directory
