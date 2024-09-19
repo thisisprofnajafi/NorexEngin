@@ -10,6 +10,7 @@ import (
 	"norex/database"
 	"norex/email"
 	"norex/models"
+	"strings"
 	"time"
 )
 
@@ -19,11 +20,15 @@ func generateVerificationCode() string {
 	return fmt.Sprintf("%05d", rand.Intn(100000))
 }
 
-func sendEmail(emailAddr, code, subject string) error {
-	// Use the new GenerateVerificationEmailBody function for the email body
-	body := email.GenerateVerificationEmailBody(code)
-	return email.SendEmail(emailAddr, subject, body)
+func generateUniqueID() string {
+	const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+	b := make([]byte, 7)
+	for i := range b {
+		b[i] = charset[rand.Intn(len(charset))]
+	}
+	return string(b)
 }
+
 func RequestCode(c *fiber.Ctx) error {
 	emailAddress := c.FormValue("email")
 
@@ -37,7 +42,8 @@ func RequestCode(c *fiber.Ctx) error {
 		user = models.User{
 			Email:            emailAddress,
 			VerificationCode: generateVerificationCode(),
-			CodeExpiryTime:   time.Now().Add(10 * time.Minute),
+			UniqueID:         generateUniqueID(),
+			CodeExpiryTime:   time.Now().UTC().Add(5 * time.Minute),
 			AttemptCount:     0,
 		}
 		_, err := collection.InsertOne(context.TODO(), user)
@@ -45,9 +51,17 @@ func RequestCode(c *fiber.Ctx) error {
 			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to create user"})
 		}
 	} else {
-		// Existing user, update the code and expiry
+		// Existing user, check if they are allowed to request a new code
+		lastRequestTime := user.CodeExpiryTime // Assuming CodeExpiryTime is used for this purpose
+		if time.Since(lastRequestTime) < 5*time.Minute {
+			return c.Status(fiber.StatusTooManyRequests).JSON(fiber.Map{
+				"error": "You can request a new code every 5 minutes",
+			})
+		}
+
+		// Update the code and expiry
 		user.VerificationCode = generateVerificationCode()
-		user.CodeExpiryTime = time.Now().Add(10 * time.Minute)
+		user.CodeExpiryTime = time.Now().UTC().Add(5 * time.Minute)
 		user.AttemptCount = 0 // Reset attempts
 		_, err := collection.UpdateOne(context.TODO(), bson.M{"email": emailAddress}, bson.M{"$set": user})
 		if err != nil {
@@ -55,32 +69,9 @@ func RequestCode(c *fiber.Ctx) error {
 		}
 	}
 
-	// Create an HTML email body
-	htmlBody := fmt.Sprintf(`
-        <html>
-        <body>
-            <h2>Hello,</h2>
-            <p>Your verification code is: <strong>%s</strong></p>
-            <p>Please use this code to verify your email. This code will expire in 10 minutes.</p>
-            <br>
-            <p>Best regards,</p>
-            <p>Your Company Team</p>
-        </body>
-        </html>
-    `, user.VerificationCode)
-
 	// Use the email package's SendEmail function to send the HTML email
-	err = email.SendEmail(user.Email, "Verify Email", htmlBody)
+	err = email.SendVerificationEmail(user.Email, "Verify Email", user.VerificationCode)
 	if err != nil {
-		// Capture the error details and log them
-		fmt.Printf("Error occurred while sending email to %s: %v\n", user.Email, err)
-
-		// If the error has an underlying cause, log that too
-		if netErr, ok := err.(interface{ Unwrap() error }); ok && netErr.Unwrap() != nil {
-			fmt.Printf("Underlying error: %v\n", netErr.Unwrap())
-		}
-
-		// Return the error message in the response
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": fmt.Sprintf("Failed to send email: %v", err),
 		})
@@ -88,13 +79,15 @@ func RequestCode(c *fiber.Ctx) error {
 
 	return c.JSON(fiber.Map{"message": "Verification code sent"})
 }
-func VerifyCode(c *fiber.Ctx) error {
-	email := c.FormValue("email")
-	code := c.FormValue("code")
 
+func VerifyCode(c *fiber.Ctx) error {
+	userEmail := c.FormValue("email")
+	code := c.FormValue("code")
 	collection := database.GetCollection("users")
 	var user models.User
-	err := collection.FindOne(context.TODO(), bson.M{"email": email}).Decode(&user)
+
+	// Find the user by email
+	err := collection.FindOne(context.TODO(), bson.M{"email": userEmail}).Decode(&user)
 	if err != nil {
 		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Invalid email"})
 	}
@@ -115,14 +108,21 @@ func VerifyCode(c *fiber.Ctx) error {
 		if user.AttemptCount >= 5 {
 			user.BanUntil = time.Now().Add(2 * time.Hour) // Ban for 2 hours
 		}
-
-		_, _ = collection.UpdateOne(context.TODO(), bson.M{"email": email}, bson.M{"$set": user})
+		_, _ = collection.UpdateOne(context.TODO(), bson.M{"email": userEmail}, bson.M{"$set": user})
 		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Invalid code"})
 	}
 
-	// Reset attempts on success and generate token
+	// Reset attempts on success
 	user.AttemptCount = 0
-	_, _ = collection.UpdateOne(context.TODO(), bson.M{"email": email}, bson.M{"$set": user})
+
+	// Assign a default role if the user doesn't have one
+	if user.Role == "" {
+		user.Role = "user"
+		user.VerifiedEmailDate = time.Now().UTC() // Assign "user" as the default role
+	}
+
+	// Update user in the database with reset attempts and role if needed
+	_, _ = collection.UpdateOne(context.TODO(), bson.M{"email": userEmail}, bson.M{"$set": user})
 
 	// Generate JWT token
 	token, err := generateToken(user.Email)
@@ -130,7 +130,28 @@ func VerifyCode(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to generate token"})
 	}
 
-	return c.JSON(fiber.Map{"token": token})
+	// Fetch the user's role from the database
+	roleCollection := database.GetCollection("roles")
+	var role models.Role
+	err = roleCollection.FindOne(context.TODO(), bson.M{"name": user.Role}).Decode(&role)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to retrieve user role"})
+	}
+
+	// Create a session for the user
+	err = CreateSession(user, role, token, c.IP(), c.Get("User-Agent"))
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to create session"})
+	}
+
+	// Determine if the user needs to provide additional information
+	needInfo := user.Name == "" || user.Gender == ""
+
+	return c.JSON(fiber.Map{
+		"message":      "Verification successful",
+		"require_info": needInfo,
+		"token":        token,
+	})
 }
 
 func updateBanStatus(user *models.User) {
@@ -141,7 +162,7 @@ func updateBanStatus(user *models.User) {
 	}
 }
 
-var jwtSecret = []byte("your_jwt_secret_key")
+var JWTSecret = []byte("your_jwt_secret_key")
 
 func generateToken(email string) (string, error) {
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
@@ -149,5 +170,63 @@ func generateToken(email string) (string, error) {
 		"exp":   time.Now().Add(time.Hour * 72).Unix(), // 72 hours expiry
 	})
 
-	return token.SignedString(jwtSecret)
+	return token.SignedString(JWTSecret)
+}
+
+func JWTProtected() fiber.Handler {
+	return func(c *fiber.Ctx) error {
+		tokenString := c.Get("Authorization")
+		if tokenString == "" {
+			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Missing or invalid token"})
+		}
+
+		// Remove "Bearer " prefix if present
+		if strings.HasPrefix(tokenString, "Bearer ") {
+			tokenString = strings.TrimPrefix(tokenString, "Bearer ")
+		}
+
+		token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
+			return JWTSecret, nil
+		})
+
+		if err != nil || !token.Valid {
+			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Invalid token"})
+		}
+
+		claims, ok := token.Claims.(jwt.MapClaims)
+		if !ok {
+			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Invalid token claims"})
+		}
+
+		email, ok := claims["email"].(string)
+		if !ok {
+			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Email not found in token"})
+		}
+
+		// Set email in Locals
+		c.Locals("email", email)
+
+		return c.Next()
+	}
+}
+
+func CreateSession(user models.User, role models.Role, token string, ipAddress string, device string) error {
+	collection := database.GetCollection("sessions")
+
+	session := models.Session{
+		UserID:    user.ID,
+		Token:     token,
+		IPAddress: ipAddress,
+		Device:    device,
+		CreatedAt: time.Now(),
+		ExpiresAt: time.Now().Add(role.SessionExpiry), // Expiry based on role
+		Role:      role.Name,
+	}
+
+	_, err := collection.InsertOne(context.TODO(), session)
+	if err != nil {
+		return fmt.Errorf("failed to create session: %v", err)
+	}
+
+	return nil
 }

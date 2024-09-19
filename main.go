@@ -1,24 +1,52 @@
 package main
 
 import (
-	"github.com/gofiber/fiber/v2"
+	"fmt"
 	"norex/auth"
 	"norex/database"
+	"norex/handler"
+	"norex/middleware"
+
+	"github.com/gofiber/fiber/v2"
 )
 
 func main() {
+	// Initialize Fiber app
 	app := fiber.New()
 
-	// MongoDB connection setup
+	// Connect to MongoDB
 	database.Connect()
 
-	// Routes
+	// Authentication routes
 	app.Post("api/v1/auth/request-code", auth.RequestCode)
 	app.Post("api/v1/auth/verify-code", auth.VerifyCode)
+	app.Get("/api/v1/auth/validate-token", handler.ValidateToken)
 
-	// Protected API routes
+	// Protected routes - Require JWT authentication
 	app.Use("/api/v1/protected", auth.JWTProtected())
-	//app.Get("/api/v1/protected/start-game", someHandler) // Protected route
 
-	app.Listen(":3000")
+	// Email verification middleware
+	app.Use("/api/v1/protected/profile", middleware.EnsureEmailVerified)
+
+	// Profile update route (name, gender, avatar)
+	app.Post("/api/v1/protected/profile", auth.UpdateProfile)
+
+	// Example for admin routes with permission check
+	app.Use("/api/v1/admin", middleware.CheckPermissions("manage_users"))
+	app.Get("/api/v1/admin/manage", func(c *fiber.Ctx) error {
+		return c.JSON(fiber.Map{"message": "Admin access granted!"})
+	})
+
+	// Role CRUD routes with admin protection
+	app.Post("/api/v1/protected/roles/", handler.CreateRole, middleware.AdminRequired())
+	app.Get("/api/v1/protected/roles/:id", handler.GetRole, middleware.AdminRequired())
+	app.Put("/api/v1/protected/roles/:id", handler.UpdateRole, middleware.AdminRequired())
+	app.Delete("/api/v1/protected/roles/:id", handler.DeleteRole, middleware.AdminRequired())
+	app.Get("/api/v1/protected/roles/", handler.ListRoles, middleware.AdminRequired())
+
+	// Start the server on port 3000
+	err := app.Listen("192.168.92.239:3030") // or app.Listen(":3030") for all interfaces
+	if err != nil {
+		fmt.Printf("Error starting server: %v\n", err)
+	}
 }
