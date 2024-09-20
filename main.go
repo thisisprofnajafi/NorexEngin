@@ -45,7 +45,7 @@ func main() {
 	app.Get("/api/v1/protected/roles/", handler.ListRoles, middleware.AdminRequired())
 
 	// Start the server on port 8080 (or 80/443 based on deployment setup)
-	err := app.Listen(":8080")
+	err := app.Listen(":5050")
 	if err != nil {
 		fmt.Printf("Error starting server: %v\n", err)
 	}
