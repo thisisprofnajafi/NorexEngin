@@ -7,12 +7,16 @@ import (
 	"norex/handler"
 	"norex/middleware"
 
+	"github.com/goccy/go-json"
 	"github.com/gofiber/fiber/v2"
 )
 
 func main() {
 	// Initialize Fiber app
-	app := fiber.New()
+	app := fiber.New(fiber.Config{
+		JSONEncoder: json.Marshal,
+		JSONDecoder: json.Unmarshal,
+	})
 
 	// Connect to MongoDB
 	database.Connect()
@@ -45,7 +49,7 @@ func main() {
 	app.Get("/api/v1/protected/roles/", handler.ListRoles, middleware.AdminRequired())
 
 	// Start the server on port 8080 (or 80/443 based on deployment setup)
-	err := app.Listen(":9990")
+	err := app.Listen(":80")
 	if err != nil {
 		fmt.Printf("Error starting server: %v\n", err)
 	}
