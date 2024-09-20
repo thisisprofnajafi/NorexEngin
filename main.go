@@ -44,8 +44,8 @@ func main() {
 	app.Delete("/api/v1/protected/roles/:id", handler.DeleteRole, middleware.AdminRequired())
 	app.Get("/api/v1/protected/roles/", handler.ListRoles, middleware.AdminRequired())
 
-	// Start the server on port 3000
-	err := app.Listen("http://services.frn2.chabokan.net:8080") // or app.Listen(":3030") for all interfaces
+	// Start the server on port 8080 (or 80/443 based on deployment setup)
+	err := app.Listen(":8080")
 	if err != nil {
 		fmt.Printf("Error starting server: %v\n", err)
 	}
