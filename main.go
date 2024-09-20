@@ -45,7 +45,7 @@ func main() {
 	app.Get("/api/v1/protected/roles/", handler.ListRoles, middleware.AdminRequired())
 
 	// Start the server on port 3000
-	err := app.Listen("192.168.92.239:3030") // or app.Listen(":3030") for all interfaces
+	err := app.Listen("http://services.frn2.chabokan.net:8080") // or app.Listen(":3030") for all interfaces
 	if err != nil {
 		fmt.Printf("Error starting server: %v\n", err)
 	}
