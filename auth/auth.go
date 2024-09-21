@@ -30,7 +30,7 @@ func generateUniqueID() string {
 }
 
 func RequestCode(c *fiber.Ctx) error {
-	fmt.Println(c.Body())
+	fmt.Printf("Request Body: %s\n", c.Body())
 
 	var body struct {
 		Email string `json:"email"`
