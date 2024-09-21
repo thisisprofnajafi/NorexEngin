@@ -12,8 +12,19 @@ import (
 
 func UpdateProfile(c *fiber.Ctx) error {
 	email := c.Locals("email").(string)
-	name := c.FormValue("name")
-	gender := c.FormValue("gender")
+
+	var body struct {
+		Name   string `json:"name"`
+		Gender string `json:"gender"`
+	}
+
+	// Parse the JSON body
+	if err := c.BodyParser(&body); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid request body"})
+	}
+
+	name := body.Name
+	gender := body.Gender
 
 	if name == "" || gender == "" {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Name and gender are required"})

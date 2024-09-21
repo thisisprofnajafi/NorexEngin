@@ -30,9 +30,16 @@ func generateUniqueID() string {
 }
 
 func RequestCode(c *fiber.Ctx) error {
-	fmt.Printf("Request Body: %s\n", c.Body())
-	emailAddress := c.FormValue("email")
+	var body struct {
+		Email string `json:"email"`
+	}
 
+	// Parse the JSON body using BodyParser, which will use your custom decoder
+	if err := c.BodyParser(&body); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid request body"})
+	}
+
+	emailAddress := body.Email
 	// Check if user exists, if not, create a new user
 	collection := database.GetCollection("users")
 	var user models.User
@@ -82,8 +89,19 @@ func RequestCode(c *fiber.Ctx) error {
 }
 
 func VerifyCode(c *fiber.Ctx) error {
-	userEmail := c.FormValue("email")
-	code := c.FormValue("code")
+	var body struct {
+		Email string `json:"email"`
+		Code  string `json:"code"`
+	}
+
+	// Parse the JSON body
+	if err := c.BodyParser(&body); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid request body"})
+	}
+
+	userEmail := body.Email
+	code := body.Code
+
 	collection := database.GetCollection("users")
 	var user models.User
 
