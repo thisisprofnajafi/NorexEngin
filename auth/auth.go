@@ -3,15 +3,16 @@ package auth
 import (
 	"context"
 	"fmt"
-	"github.com/dgrijalva/jwt-go/v4"
-	"github.com/gofiber/fiber/v2"
-	"go.mongodb.org/mongo-driver/bson"
 	"math/rand"
 	"norex/database"
 	"norex/email"
 	"norex/models"
 	"strings"
 	"time"
+
+	"github.com/dgrijalva/jwt-go/v4"
+	"github.com/gofiber/fiber/v2"
+	"go.mongodb.org/mongo-driver/bson"
 )
 
 func generateVerificationCode() string {
@@ -55,6 +56,7 @@ func RequestCode(c *fiber.Ctx) error {
 			VerificationCode: generateVerificationCode(),
 			UniqueID:         generateUniqueID(),
 			CodeExpiryTime:   time.Now().UTC().Add(5 * time.Minute),
+			Role:             "user",
 			AttemptCount:     0,
 		}
 		_, err := collection.InsertOne(context.TODO(), user)
