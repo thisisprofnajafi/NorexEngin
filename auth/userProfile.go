@@ -11,6 +11,7 @@ import (
 )
 
 func UpdateProfile(c *fiber.Ctx) error {
+
 	email := c.Locals("email").(string)
 
 	var body struct {

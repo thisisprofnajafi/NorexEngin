@@ -30,6 +30,8 @@ func generateUniqueID() string {
 }
 
 func RequestCode(c *fiber.Ctx) error {
+	fmt.Println(c.Body())
+
 	var body struct {
 		Email string `json:"email"`
 	}
@@ -40,6 +42,7 @@ func RequestCode(c *fiber.Ctx) error {
 	}
 
 	emailAddress := body.Email
+	fmt.Println(emailAddress)
 	// Check if user exists, if not, create a new user
 	collection := database.GetCollection("users")
 	var user models.User
