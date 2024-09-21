@@ -2,13 +2,12 @@ package main
 
 import (
 	"fmt"
+	"github.com/goccy/go-json"
+	"github.com/gofiber/fiber/v2"
 	"norex/auth"
 	"norex/database"
 	"norex/handler"
 	"norex/middleware"
-
-	"github.com/goccy/go-json"
-	"github.com/gofiber/fiber/v2"
 )
 
 func main() {
