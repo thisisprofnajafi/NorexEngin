@@ -30,6 +30,7 @@ func generateUniqueID() string {
 }
 
 func RequestCode(c *fiber.Ctx) error {
+	fmt.Printf("Request Body: %s\n", c.Body())
 	emailAddress := c.FormValue("email")
 
 	// Check if user exists, if not, create a new user
