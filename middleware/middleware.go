@@ -2,23 +2,48 @@ package middleware
 
 import (
 	"context"
+	"github.com/dgrijalva/jwt-go/v4"
 	"github.com/gofiber/fiber/v2"
 	"go.mongodb.org/mongo-driver/bson"
+	"norex/auth"
 	"norex/database"
 	"norex/models"
 )
 
 func EnsureEmailVerified(c *fiber.Ctx) error {
-	// Get the email from the request context
-	email, ok := c.Locals("email").(string)
+	// Get the token from the Authorization header
+	tokenString := c.Get("Authorization")
+	if tokenString == "" {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Missing token"})
+	}
+
+	// Parse the token
+	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
+		// Provide the secret key for validation (use your jwtSecret from the auth package)
+		return auth.JWTSecret, nil
+	})
+
+	// Check if the token is valid
+	if err != nil || !token.Valid {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Invalid or expired token"})
+	}
+
+	// Extract claims (assuming the token contains user information like email or user ID)
+	claims, ok := token.Claims.(jwt.MapClaims)
+	if !ok {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Failed to parse token claims"})
+	}
+
+	// Get user email or user ID from the claims (adjust based on your token structure)
+	email, ok := claims["email"].(string) // Or use "user_id" if you store user ID
 	if !ok || email == "" {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Email not found in request"})
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Invalid token payload"})
 	}
 
 	// Fetch the user from the database
 	var user models.User
 	collection := database.GetCollection("users")
-	err := collection.FindOne(context.TODO(), bson.M{"email": email}).Decode(&user)
+	err = collection.FindOne(context.TODO(), bson.M{"email": email}).Decode(&user)
 	if err != nil {
 		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "User not found"})
 	}
@@ -28,7 +53,7 @@ func EnsureEmailVerified(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "Email not verified"})
 	}
 
-	// If email is verified, allow request to proceed
+	// If email is verified, allow the request to proceed
 	return c.Next()
 }
 
