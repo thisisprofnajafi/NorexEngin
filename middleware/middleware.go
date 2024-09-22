@@ -2,12 +2,11 @@ package middleware
 
 import (
 	"context"
-	"github.com/dgrijalva/jwt-go/v4"
 	"github.com/gofiber/fiber/v2"
 	"go.mongodb.org/mongo-driver/bson"
-	"norex/auth"
 	"norex/database"
 	"norex/models"
+	"time"
 )
 
 func EnsureEmailVerified(c *fiber.Ctx) error {
@@ -17,38 +16,28 @@ func EnsureEmailVerified(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Missing token"})
 	}
 
-	// Parse the token
-	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
-		// Provide the secret key for validation (use your jwtSecret from the auth package)
-		return auth.JWTSecret, nil
-	})
-
-	// Check if the token is valid
-	if err != nil || !token.Valid {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Invalid or expired token"})
+	// Fetch the session using the token from the database
+	var session models.Session
+	collection := database.GetCollection("sessions")
+	err := collection.FindOne(context.TODO(), bson.M{"token": tokenString}).Decode(&session)
+	if err != nil {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Invalid or expired session token"})
 	}
 
-	// Extract claims (assuming the token contains user information like email or user ID)
-	claims, ok := token.Claims.(jwt.MapClaims)
-	if !ok {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Failed to parse token claims"})
+	// Check if the session is expired
+	if session.ExpiresAt.Before(time.Now()) {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Session has expired"})
 	}
 
-	// Get user email or user ID from the claims (adjust based on your token structure)
-	email, ok := claims["email"].(string) // Or use "user_id" if you store user ID
-	if !ok || email == "" {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Invalid token payload"})
-	}
-
-	// Fetch the user from the database
+	// Fetch the user associated with the session
 	var user models.User
-	collection := database.GetCollection("users")
-	err = collection.FindOne(context.TODO(), bson.M{"email": email}).Decode(&user)
+	userCollection := database.GetCollection("users")
+	err = userCollection.FindOne(context.TODO(), bson.M{"_id": session.UserID}).Decode(&user)
 	if err != nil {
 		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "User not found"})
 	}
 
-	// Check if the user has a valid VerifiedEmailDate
+	// Check if the user's email is verified
 	if user.VerifiedEmailDate.IsZero() {
 		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "Email not verified"})
 	}
