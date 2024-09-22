@@ -20,7 +20,7 @@ func EnsureEmailVerified(c *fiber.Ctx) error {
 	userCollection := database.GetCollection("users")
 	err := userCollection.FindOne(context.TODO(), bson.M{"email": email}).Decode(&user)
 	if err != nil {
-		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": err})
+		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": err.Error()})
 	}
 
 	// Check if the user's email is verified
