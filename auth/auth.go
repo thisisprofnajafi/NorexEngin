@@ -56,7 +56,6 @@ func RequestCode(c *fiber.Ctx) error {
 			VerificationCode: generateVerificationCode(),
 			UniqueID:         generateUniqueID(),
 			CodeExpiryTime:   time.Now().UTC().Add(5 * time.Minute),
-			Role:             "user",
 			AttemptCount:     0,
 		}
 		_, err := collection.InsertOne(context.TODO(), user)
