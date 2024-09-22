@@ -9,18 +9,26 @@ import (
 )
 
 func EnsureEmailVerified(c *fiber.Ctx) error {
+	// Get the email from the request context
 	email, ok := c.Locals("email").(string)
 	if !ok || email == "" {
 		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Email not found in request"})
 	}
 
+	// Fetch the user from the database
 	var user models.User
 	collection := database.GetCollection("users")
 	err := collection.FindOne(context.TODO(), bson.M{"email": email}).Decode(&user)
-	if err != nil || user.VerifiedEmailDate.IsZero() {
+	if err != nil {
+		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "User not found"})
+	}
+
+	// Check if the user has a valid VerifiedEmailDate
+	if user.VerifiedEmailDate.IsZero() {
 		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "Email not verified"})
 	}
 
+	// If email is verified, allow request to proceed
 	return c.Next()
 }
 
