@@ -6,33 +6,19 @@ import (
 	"go.mongodb.org/mongo-driver/bson"
 	"norex/database"
 	"norex/models"
-	"time"
 )
 
 func EnsureEmailVerified(c *fiber.Ctx) error {
-	// Get the token from the Authorization header
-	tokenString := c.Get("Authorization")
-	if tokenString == "" {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Missing token"})
+	// Get the email from Locals (set by previous middleware)
+	email, ok := c.Locals("email").(string)
+	if !ok || email == "" {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Email not found in request"})
 	}
 
-	// Fetch the session using the token from the database
-	var session models.Session
-	collection := database.GetCollection("sessions")
-	err := collection.FindOne(context.TODO(), bson.M{"token": tokenString}).Decode(&session)
-	if err != nil {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Invalid or expired session token"})
-	}
-
-	// Check if the session is expired
-	if session.ExpiresAt.Before(time.Now()) {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Session has expired"})
-	}
-
-	// Fetch the user associated with the session
+	// Fetch the user from the database using the email
 	var user models.User
 	userCollection := database.GetCollection("users")
-	err = userCollection.FindOne(context.TODO(), bson.M{"_id": session.UserID}).Decode(&user)
+	err := userCollection.FindOne(context.TODO(), bson.M{"email": email}).Decode(&user)
 	if err != nil {
 		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "User not found"})
 	}
