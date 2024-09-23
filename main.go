@@ -33,6 +33,7 @@ func main() {
 
 	// Profile update route (name, gender, avatar)
 	app.Post("/api/v1/protected/profile", auth.UpdateProfile)
+	app.Get("/api/v1/protected/user/profile", auth.JWTProtected(), handler.GetAuthenticatedUser)
 
 	// Example for admin routes with permission check
 	app.Use("/api/v1/admin", middleware.CheckPermissions("manage_users"))
