@@ -19,34 +19,44 @@ func main() {
 
 	// Connect to MongoDB
 	database.Connect()
+	database.ConnectRethinkDB()
+
+	//delete all the rows
+	//rethink.Table("rooms").Delete().RunWrite(database.GetRethinkSession())
+
+	api := app.Group("/api/v1")
 
 	// Authentication routes
-	app.Post("api/v1/auth/request-code", auth.RequestCode)
-	app.Post("api/v1/auth/verify-code", auth.VerifyCode)
-	app.Get("/api/v1/auth/validate-token", handler.ValidateToken)
+	api.Post("/auth/request-code", auth.RequestCode)
+	api.Post("/auth/verify-code", auth.VerifyCode)
+	api.Get("/auth/validate-token", handler.ValidateToken)
 
 	// Protected routes - Require JWT authentication
-	app.Use("/api/v1/protected", auth.JWTProtected())
+	protected := api.Group("/protected", auth.JWTProtected())
 
 	// Email verification middleware
-	app.Use("/api/v1/protected/profile", middleware.EnsureEmailVerified)
+	protected.Use(middleware.EnsureEmailVerified)
 
-	// Profile update route (name, gender, avatar)
-	app.Post("/api/v1/protected/profile", auth.UpdateProfile)
-	app.Get("/api/v1/protected/user/profile", auth.JWTProtected(), handler.GetAuthenticatedUser)
+	// Profile routes
+	protected.Post("/profile", auth.UpdateProfile)
+	protected.Get("/user/profile", handler.GetAuthenticatedUser)
 
-	// Example for admin routes with permission check
-	app.Use("/api/v1/admin", middleware.CheckPermissions("manage_users"))
-	app.Get("/api/v1/admin/manage", func(c *fiber.Ctx) error {
+	// Admin routes
+	admin := api.Group("/admin", middleware.CheckPermissions("manage_users"))
+	admin.Get("/manage", func(c *fiber.Ctx) error {
 		return c.JSON(fiber.Map{"message": "Admin access granted!"})
 	})
 
 	// Role CRUD routes with admin protection
-	app.Post("/api/v1/protected/roles/", handler.CreateRole, middleware.AdminRequired())
-	app.Get("/api/v1/protected/roles/:id", handler.GetRole, middleware.AdminRequired())
-	app.Put("/api/v1/protected/roles/:id", handler.UpdateRole, middleware.AdminRequired())
-	app.Delete("/api/v1/protected/roles/:id", handler.DeleteRole, middleware.AdminRequired())
-	app.Get("/api/v1/protected/roles/", handler.ListRoles, middleware.AdminRequired())
+	role := protected.Group("/roles", middleware.AdminRequired())
+	role.Post("/", handler.CreateRole)
+	role.Get("/:id", handler.GetRole)
+	role.Put("/:id", handler.UpdateRole)
+	role.Delete("/:id", handler.DeleteRole)
+	role.Get("/", handler.ListRoles)
+
+	// Room creation route
+	protected.Post("/new/room", handler.CreateRoom)
 
 	// Start the server on port 8080 (or 80/443 based on deployment setup)
 	err := app.Listen(":9990")

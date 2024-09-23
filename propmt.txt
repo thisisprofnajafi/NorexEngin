@@ -1,11 +1,1 @@
-I did the routes like this
-	app.Post("/api/v1/protected/roles/", handler.CreateRole, middleware.AdminRequired())
-	app.Get("/api/v1/protected/roles/:id", handler.GetRole, middleware.AdminRequired())
-	app.Put("/api/v1/protected/roles/:id", handler.UpdateRole, middleware.AdminRequired())
-	app.Delete("/api/v1/protected/roles/:id", handler.DeleteRole, middleware.AdminRequired())
-	app.Get("/api/v1/protected/roles/", handler.ListRoles, middleware.AdminRequired())
-
-
-create routes to add or delete role permissions specifically
-
-
+now create a socket channel that any user is subscribed to it return the counts of the game rooms in the database
