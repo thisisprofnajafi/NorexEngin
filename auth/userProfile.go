@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math/rand"
 	"norex/database"
+	"norex/models"
 
 	"github.com/gofiber/fiber/v2"
 	"go.mongodb.org/mongo-driver/bson"
@@ -31,12 +32,28 @@ func UpdateProfile(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Name and gender are required"})
 	}
 
+	defaultGames := map[string]models.GameStats{
+		"uno":         {Wins: 0, Level: 1},
+		"spades":      {Wins: 0, Level: 1},
+		"go_fish":     {Wins: 0, Level: 1},
+		"euchre":      {Wins: 0, Level: 1},
+		"hearts":      {Wins: 0, Level: 1},
+		"crazy_eight": {Wins: 0, Level: 1},
+		"chess":       {Wins: 0, Level: 1},
+		"othello":     {Wins: 0, Level: 1},
+		"go":          {Wins: 0, Level: 1},
+		"checkers":    {Wins: 0, Level: 1},
+		"battleship":  {Wins: 0, Level: 1},
+		"image_match": {Wins: 0, Level: 1},
+	}
+
 	collection := database.GetCollection("users")
 	update := bson.M{
 		"$set": bson.M{
 			"name":   name,
 			"gender": gender,
 			"avatar": generateAvatar(gender),
+			"games":  defaultGames,
 		},
 	}
 
