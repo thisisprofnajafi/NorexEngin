@@ -50,7 +50,7 @@ func UpdateProfile(c *fiber.Ctx) error {
 
 func generateAvatar(gender string) string {
 	if gender == "Male" {
-		return fmt.Sprintf("male-%d.jpg", rand.Intn(10)+1)
+		return fmt.Sprintf("man-%d.jpg", rand.Intn(10)+1)
 	}
-	return fmt.Sprintf("female-%d.jpg", rand.Intn(10)+1)
+	return fmt.Sprintf("lady-%d.jpg", rand.Intn(10)+1)
 }
