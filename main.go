@@ -5,6 +5,7 @@ import (
 	"github.com/goccy/go-json"
 	"github.com/gofiber/contrib/websocket"
 	"github.com/gofiber/fiber/v2"
+	"log"
 	"norex/auth"
 	"norex/database"
 	"norex/handler"
@@ -61,18 +62,66 @@ func main() {
 
 	webSocket := api.Use("/ws", func(c *fiber.Ctx) error {
 		if websocket.IsWebSocketUpgrade(c) {
-			// Allow the request to proceed to WebSocket upgrade
 			c.Locals("allowed", true)
 			return c.Next()
 		}
 		return fiber.ErrUpgradeRequired
 	})
 
-	webSocket.Get("/all-rooms", websocket.New(handler.AllGamesSocket))
+	webSocket.Get("/all-games", websocket.New(func(c *websocket.Conn) {
+		// c.Locals is added to the *websocket.Conn
+		log.Println(c.Locals("allowed"))  // true
+		log.Println(c.Params("id"))       // 123
+		log.Println(c.Query("v"))         // 1.0
+		log.Println(c.Cookies("session")) // ""
+
+		// websocket.Conn bindings https://pkg.go.dev/github.com/fasthttp/websocket?tab=doc#pkg-index
+		var (
+			mt  int
+			msg []byte
+			err error
+		)
+		for {
+			if mt, msg, err = c.ReadMessage(); err != nil {
+				log.Println("read:", err)
+				break
+			}
+			log.Printf("recv: %s", msg)
+
+			if err = c.WriteMessage(mt, msg); err != nil {
+				log.Println("write:", err)
+				break
+			}
+		}
+
+	}))
 
 	// Start the server on port 8080 (or 80/443 based on deployment setup)
 	err := app.Listen(":9990")
 	if err != nil {
 		fmt.Printf("Error starting server: %v\n", err)
+	}
+}
+
+// WebSocket handler function
+func AllGamesSocket(c *websocket.Conn) {
+	var (
+		mt  int
+		msg []byte
+		err error
+	)
+	for {
+		// Read the WebSocket message
+		if mt, msg, err = c.ReadMessage(); err != nil {
+			log.Println("read error:", err)
+			break
+		}
+
+		// Echo the message back to the client
+		log.Printf("recv: %s", msg)
+		if err = c.WriteMessage(mt, msg); err != nil {
+			log.Println("write error:", err)
+			break
+		}
 	}
 }
