@@ -5,7 +5,6 @@ import (
 	"github.com/goccy/go-json"
 	"github.com/gofiber/contrib/websocket"
 	"github.com/gofiber/fiber/v2"
-	"log"
 	"norex/auth"
 	"norex/database"
 	"norex/handler"
@@ -60,7 +59,9 @@ func main() {
 	// Room creation route
 	protected.Post("/new/room", handler.CreateRoom)
 
-	webSocket := api.Use("/ws", func(c *fiber.Ctx) error {
+	webSocket := api.Use(func(c *fiber.Ctx) error {
+		// IsWebSocketUpgrade returns true if the client
+		// requested upgrade to the WebSocket protocol.
 		if websocket.IsWebSocketUpgrade(c) {
 			c.Locals("allowed", true)
 			return c.Next()
@@ -68,60 +69,13 @@ func main() {
 		return fiber.ErrUpgradeRequired
 	})
 
-	webSocket.Get("/all-games", websocket.New(func(c *websocket.Conn) {
-		// c.Locals is added to the *websocket.Conn
-		log.Println(c.Locals("allowed"))  // true
-		log.Println(c.Params("id"))       // 123
-		log.Println(c.Query("v"))         // 1.0
-		log.Println(c.Cookies("session")) // ""
+	webSocket.Get("/all-games", websocket.New(handler.HandleGameRooms))
 
-		// websocket.Conn bindings https://pkg.go.dev/github.com/fasthttp/websocket?tab=doc#pkg-index
-		var (
-			mt  int
-			msg []byte
-			err error
-		)
-		for {
-			if mt, msg, err = c.ReadMessage(); err != nil {
-				log.Println("read:", err)
-				break
-			}
-			log.Printf("recv: %s", msg)
-
-			if err = c.WriteMessage(mt, msg); err != nil {
-				log.Println("write:", err)
-				break
-			}
-		}
-
-	}))
+	handler.StartWebSocketService()
 
 	// Start the server on port 8080 (or 80/443 based on deployment setup)
 	err := app.Listen(":9990")
 	if err != nil {
 		fmt.Printf("Error starting server: %v\n", err)
-	}
-}
-
-// WebSocket handler function
-func AllGamesSocket(c *websocket.Conn) {
-	var (
-		mt  int
-		msg []byte
-		err error
-	)
-	for {
-		// Read the WebSocket message
-		if mt, msg, err = c.ReadMessage(); err != nil {
-			log.Println("read error:", err)
-			break
-		}
-
-		// Echo the message back to the client
-		log.Printf("recv: %s", msg)
-		if err = c.WriteMessage(mt, msg); err != nil {
-			log.Println("write error:", err)
-			break
-		}
 	}
 }
