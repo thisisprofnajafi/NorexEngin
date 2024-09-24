@@ -59,7 +59,7 @@ func main() {
 	// Room creation route
 	protected.Post("/new/room", handler.CreateRoom)
 
-	webSocket := api.Use(func(c *fiber.Ctx) error {
+	webSocket := protected.Use(func(c *fiber.Ctx) error {
 		// IsWebSocketUpgrade returns true if the client
 		// requested upgrade to the WebSocket protocol.
 		if websocket.IsWebSocketUpgrade(c) {
