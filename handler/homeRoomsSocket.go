@@ -67,7 +67,6 @@ func broadcastRoomCountByGame() {
 	}
 }
 
-// Function to watch for changes (like insertions) in the RethinkDB rooms table
 func WatchRoomChanges() {
 	cursor, err := rethinkdb.Table("rooms").Changes().Run(database.GetRethinkSession())
 	if err != nil {
@@ -78,11 +77,29 @@ func WatchRoomChanges() {
 
 	var change map[string]interface{}
 	for cursor.Next(&change) {
-		// Broadcast only when a new room is added (you can customize it for other changes if necessary)
-		if change["new_val"] != nil {
-			log.Println("New room added, triggering broadcast")
+		// Check for room addition
+		//if change["new_val"] != nil && change["old_val"] == nil {
+		//	log.Println("New room added, triggering broadcast")
+		//	broadcastRoomCountByGame()
+		//}
+		//
+		//// Check for room deletion
+		//if change["new_val"] == nil && change["old_val"] != nil {
+		//	log.Println("Room deleted, triggering broadcast")
+		//	broadcastRoomCountByGame()
+		//}
+
+		if _, newExists := change["new_val"].(map[string]interface{}); newExists && change["old_val"] == nil {
+			log.Println("Room Added, triggering broadcast")
 			broadcastRoomCountByGame()
 		}
+
+		// If old value exists but new value is nil, a room was deleted
+		if _, oldExists := change["old_val"].(map[string]interface{}); oldExists && change["new_val"] == nil {
+			log.Println("Room Deleted, triggering broadcast")
+			broadcastRoomCountByGame()
+		}
+
 	}
 
 	if err := cursor.Err(); err != nil {
@@ -90,7 +107,6 @@ func WatchRoomChanges() {
 	}
 }
 
-// Start the WebSocket and RethinkDB watchers concurrently
 func StartWebSocketService() {
 	// Start a goroutine to watch for changes in the "rooms" table and trigger broadcasts
 	go WatchRoomChanges()

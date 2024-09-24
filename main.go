@@ -1,10 +1,10 @@
 package main
 
 import (
-	"fmt"
 	"github.com/goccy/go-json"
 	"github.com/gofiber/contrib/websocket"
 	"github.com/gofiber/fiber/v2"
+	"log"
 	"norex/auth"
 	"norex/database"
 	"norex/handler"
@@ -58,6 +58,8 @@ func main() {
 
 	// Room creation route
 	protected.Post("/new/room", handler.CreateRoom)
+	protected.Put("/edit/room/:id", handler.EditRoom)
+	protected.Get("/rooms/:game_name", handler.GetGameRooms)
 
 	webSocket := protected.Use(func(c *fiber.Ctx) error {
 		// IsWebSocketUpgrade returns true if the client
@@ -70,12 +72,15 @@ func main() {
 	})
 
 	webSocket.Get("/all-games", websocket.New(handler.HandleGameRooms))
+	webSocket.Get("/game/:game_name/ws", websocket.New(handler.HandleNewGameRoom))
 
 	handler.StartWebSocketService()
+	handler.StartWebSocketServiceNewGameInfo()
 
-	// Start the server on port 8080 (or 80/443 based on deployment setup)
-	err := app.Listen(":9990")
-	if err != nil {
-		fmt.Printf("Error starting server: %v\n", err)
-	}
+	//err := app.Listen(":9990")
+	//if err != nil {
+	//	fmt.Printf("Error starting server: %v\n", err)
+	//}
+
+	log.Fatal(app.Listen(":9990"))
 }
