@@ -62,8 +62,6 @@ func main() {
 	protected.Get("/rooms/:game_name", handler.GetGameRooms)
 
 	webSocket := protected.Use(func(c *fiber.Ctx) error {
-		// IsWebSocketUpgrade returns true if the client
-		// requested upgrade to the WebSocket protocol.
 		if websocket.IsWebSocketUpgrade(c) {
 			c.Locals("allowed", true)
 			return c.Next()
