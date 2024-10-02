@@ -60,6 +60,12 @@ func main() {
 	protected.Post("/new/room", handler.CreateRoom)
 	protected.Put("/edit/room/:id", handler.EditRoom)
 	protected.Get("/rooms/:game_name", handler.GetGameRooms)
+	protected.Get("/participate/:game_id", handler.ParticipateInGame)
+	protected.Get("/participate/cancel/:game_id", handler.CancelParticipation)
+	protected.Post("/send-message/:game_id", handler.SendMessage)
+	protected.Post("/start-game/:game_id", handler.StartGame)
+	protected.Get("/room-information/:game_id", handler.GetRoomInformation)
+	protected.Get("/ws/game/:game_id", websocket.New(handler.HandleGameRoom)) // WebSocket for each game room
 
 	webSocket := protected.Use(func(c *fiber.Ctx) error {
 		if websocket.IsWebSocketUpgrade(c) {
@@ -70,15 +76,12 @@ func main() {
 	})
 
 	webSocket.Get("/all-games", websocket.New(handler.HandleGameRooms))
+	webSocket.Get("/game/:game_id", websocket.New(handler.HandleGameRoom))
 	webSocket.Get("/game/:game_name/ws", websocket.New(handler.HandleNewGameRoom))
 
 	handler.StartWebSocketService()
 	handler.StartWebSocketServiceNewGameInfo()
-
-	//err := app.Listen(":9990")
-	//if err != nil {
-	//	fmt.Printf("Error starting server: %v\n", err)
-	//}
+	handler.StartWebSocketServiceGameRoom()
 
 	log.Fatal(app.Listen(":9990"))
 }

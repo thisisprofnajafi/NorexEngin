@@ -1,1 +1,29 @@
-now create a socket channel that any user is subscribed to it return the counts of the game rooms in the database
+I need another socket service
+I need a socket service for each game room
+each game room has to have a socket with some event. I will you the events later on.
+each room has an owner (we had it before)
+each game can have multiple users participate and play game at a same time based on the game (each game capacity is different).
+the owner is always participated in the game room.
+other users can participate too
+
+the route we need:
+/participate/:game_id -> a user can participate in the game
+/participate/cancel/:game_id -> a user can cancel participation (the owner can not)
+/send-message/:game_id -> a user can send message (in this situation we have to check that the text chat option is on in the game setting)
+/start-game/:game_id -> only the owner can start the game.
+/room-information/:game_id -> the owner of the room can see this (containing game settings abd owner name and level in the game and the avatar)
+
+events :
+    - someone subscribed to channel -> get userName and Avatar
+    - someone unsubscribed -> get userName and Avatar
+    - someone messaged (this is for text messages in a room)
+    - someone participated in the game (get the userName, avatar, and the level of the user in the game)
+    - someone canceled participated (get the userName, avatar, and the level of the user in the game)
+    - full capacity (when the game capacity is matching the participated users count this will be true)
+    - can start the game (this has complex logic just code the function and event broadcast. we will do it later)
+    - room deleted
+    - room edited (broadcast the edits of the room and send it to the channel with details of what changed.)
+
+there are some logics for these socket and broadcast:
+    - when user exits the room -> delete the room.
+    - when the room is deleted -> delete all the chats and participated user options

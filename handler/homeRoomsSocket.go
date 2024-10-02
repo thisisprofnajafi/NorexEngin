@@ -10,7 +10,6 @@ import (
 
 var clients = make(map[*websocket.Conn]bool) // connected clients
 
-// WebSocket connection handler
 func HandleGameRooms(c *websocket.Conn) {
 	clients[c] = true
 	defer func() {
@@ -18,7 +17,6 @@ func HandleGameRooms(c *websocket.Conn) {
 		c.Close()
 	}()
 
-	// Keep listening to broadcast messages
 	for {
 		_, _, err := c.ReadMessage()
 		if err != nil {
@@ -68,6 +66,9 @@ func broadcastRoomCountByGame() {
 }
 
 func WatchRoomChanges() {
+
+	log.Println("change detected in /all-games")
+
 	cursor, err := rethinkdb.Table("rooms").Changes().Run(database.GetRethinkSession())
 	if err != nil {
 		log.Println("RethinkDB error:", err)
@@ -77,17 +78,6 @@ func WatchRoomChanges() {
 
 	var change map[string]interface{}
 	for cursor.Next(&change) {
-		// Check for room addition
-		//if change["new_val"] != nil && change["old_val"] == nil {
-		//	log.Println("New room added, triggering broadcast")
-		//	broadcastRoomCountByGame()
-		//}
-		//
-		//// Check for room deletion
-		//if change["new_val"] == nil && change["old_val"] != nil {
-		//	log.Println("Room deleted, triggering broadcast")
-		//	broadcastRoomCountByGame()
-		//}
 
 		if _, newExists := change["new_val"].(map[string]interface{}); newExists && change["old_val"] == nil {
 			log.Println("Room Added, triggering broadcast")
@@ -108,6 +98,5 @@ func WatchRoomChanges() {
 }
 
 func StartWebSocketService() {
-	// Start a goroutine to watch for changes in the "rooms" table and trigger broadcasts
 	go WatchRoomChanges()
 }

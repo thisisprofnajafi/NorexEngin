@@ -160,7 +160,10 @@ func broadcastDeletedRoom(gameName string, roomDetails map[string]interface{}) {
 
 // Broadcast room updates (changes)
 func broadcastRoomChange(gameName string, roomDetails map[string]interface{}) {
+	log.Println("Broadcast Changes")
 	for client := range gameClients[gameName] {
+		log.Println("Broadcast to " + client.RemoteAddr().String())
+
 		if err := client.WriteJSON(fiber.Map{
 			"eventType": "updated", // Event type: room updated
 			"room":      roomDetails,
@@ -228,9 +231,8 @@ func WatchGameRoomChanges() {
 }
 
 func StartWebSocketServiceNewGameInfo() {
-	// Start goroutines to watch for specific changes in the "rooms" table and trigger broadcasts
-	go WatchRoomGameAddOrDelete() // Watches for room additions and deletions
-	go WatchGameRoomChanges()     // Watches for room updates/changes
+	go WatchRoomGameAddOrDelete()
+	go WatchGameRoomChanges()
 }
 
 type RoomUpdate struct {
