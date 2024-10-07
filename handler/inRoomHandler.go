@@ -333,10 +333,9 @@ func GetRoomInformation(c *fiber.Ctx) error {
 	gameLevel := owner.Games[gameName].Level
 
 	filteredSettings := fiber.Map{
-		"IsLocked":     roomSettings["IsLocked"],
-		"VoiceChatOn":  roomSettings["VoiceChatOn"],
-		"TextChatOn":   roomSettings["TextChatOn"],
-		"RoomPassword": roomSettings["RoomPassword"],
+		"IsLocked":    roomSettings["IsLocked"],
+		"VoiceChatOn": roomSettings["VoiceChatOn"],
+		"TextChatOn":  roomSettings["TextChatOn"],
 	}
 
 	// Prepare the room information response
