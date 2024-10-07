@@ -65,7 +65,7 @@ func main() {
 	protected.Post("/send-message/:game_id", handler.SendMessage)
 	protected.Post("/start-game/:game_id", handler.StartGame)
 	protected.Get("/room-information/:game_id", handler.GetRoomInformation)
-	protected.Get("/ws/game/:game_id", websocket.New(handler.HandleGameRoom)) // WebSocket for each game room
+	//protected.Get("/ws/game/:game_id", websocket.New(handler.HandleGameRoom)) // WebSocket for each game room
 
 	webSocket := protected.Use(func(c *fiber.Ctx) error {
 		if websocket.IsWebSocketUpgrade(c) {

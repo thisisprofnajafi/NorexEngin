@@ -295,6 +295,7 @@ func GetRoomInformation(c *fiber.Ctx) error {
 	// Define a struct to hold the room information
 	var room struct {
 		UserEmail string `rethinkdb:"userEmail"`
+		GameID    string `rethinkdb:"gameID"`   // Assuming the room table in RethinkDB has gameID field
 		Settings  string `rethinkdb:"settings"` // Assuming you have a field for game settings
 	}
 
@@ -313,22 +314,25 @@ func GetRoomInformation(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Could not decode room information"})
 	}
 
-	// Now we need to get the owner's details
+	// Now we need to get the owner's details from MongoDB
 	var owner models.User // Assuming you have a User model to hold user information
 	collection := database.GetCollection("users")
 
-	// Fetch the owner's information from the users collection
+	// Fetch the owner's information from the users collection using the email
 	err = collection.FindOne(context.TODO(), bson.M{"email": room.UserEmail}).Decode(&owner)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Could not retrieve owner information"})
 	}
 
+	// Fetch the game ID from the room and then get the level for that specific game
+	gameLevel := owner.Games[room.GameID].Level
+
 	// Prepare the room information response
 	roomInfo := fiber.Map{
 		"ownerName": owner.Name,
-		"level":     owner.Games[gameID].Level, // Assuming user.Games is a map with gameID as key
-		"avatar":    owner.Avatar,
-		"settings":  room.Settings,
+		"level":     gameLevel,     // Owner's level for the specific game
+		"avatar":    owner.Avatar,  // Owner's avatar
+		"settings":  room.Settings, // Room settings from RethinkDB
 	}
 
 	return c.JSON(roomInfo)
