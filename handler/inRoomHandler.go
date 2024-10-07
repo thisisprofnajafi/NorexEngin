@@ -292,47 +292,59 @@ func StartGame(c *fiber.Ctx) error {
 func GetRoomInformation(c *fiber.Ctx) error {
 	gameID := c.Params("game_id")
 
-	// Define a struct to hold the room information
-	var room struct {
-		UserEmail string `rethinkdb:"userEmail"`
-		GameID    string `rethinkdb:"gameID"`   // Assuming the room table in RethinkDB has gameID field
-		Settings  string `rethinkdb:"settings"` // Assuming you have a field for game settings
-	}
+	// Define a map to hold the entire room information from RethinkDB
+	var roomSettings map[string]interface{}
 
-	// Fetch the room from the database
+	// Fetch the room from RethinkDB. The entire row will represent the room's settings.
 	res, err := rethinkdb.Table("rooms").Get(gameID).Run(database.GetRethinkSession())
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Could not retrieve room"})
 	}
 	defer res.Close()
 
-	// Decode the result into the room struct
-	if err := res.One(&room); err != nil {
+	// Decode the result into the roomSettings map
+	if err := res.One(&roomSettings); err != nil {
 		if err == rethinkdb.ErrEmptyResult {
 			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "Room not found"})
 		}
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Could not decode room information"})
 	}
 
-	// Now we need to get the owner's details from MongoDB
+	// Get the owner's email from the roomSettings map (assuming 'userEmail' exists in the RethinkDB document)
+	userEmail, ok := roomSettings["UserEmail"].(string)
+	if !ok {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Invalid user email format in room data"})
+	}
+
+	// Fetch the owner's details from MongoDB
 	var owner models.User // Assuming you have a User model to hold user information
 	collection := database.GetCollection("users")
 
-	// Fetch the owner's information from the users collection using the email
-	err = collection.FindOne(context.TODO(), bson.M{"email": room.UserEmail}).Decode(&owner)
+	// Fetch the owner's information from the users collection using the email from the room
+	err = collection.FindOne(context.TODO(), bson.M{"email": userEmail}).Decode(&owner)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Could not retrieve owner information"})
 	}
 
-	// Fetch the game ID from the room and then get the level for that specific game
-	gameLevel := owner.Games[room.GameID].Level
+	gameName, ok := roomSettings["GameName"].(string)
+	if !ok {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Invalid game name format in room data"})
+	}
+	gameLevel := owner.Games[gameName].Level
+
+	filteredSettings := fiber.Map{
+		"IsLocked":     roomSettings["IsLocked"],
+		"VoiceChatOn":  roomSettings["VoiceChatOn"],
+		"TextChatOn":   roomSettings["TextChatOn"],
+		"RoomPassword": roomSettings["RoomPassword"],
+	}
 
 	// Prepare the room information response
 	roomInfo := fiber.Map{
 		"ownerName": owner.Name,
-		"level":     gameLevel,     // Owner's level for the specific game
-		"avatar":    owner.Avatar,  // Owner's avatar
-		"settings":  room.Settings, // Room settings from RethinkDB
+		"level":     gameLevel,        // Owner's level for the specific game
+		"avatar":    owner.Avatar,     // Owner's avatar
+		"settings":  filteredSettings, // Filtered room settings
 	}
 
 	return c.JSON(roomInfo)
