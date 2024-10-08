@@ -22,6 +22,8 @@ type User struct {
 	UniqueID          string               `bson:"unique_id,omitempty"`
 	Avatar            string               `bson:"avatar,omitempty"`
 	VerifiedEmailDate time.Time            `bson:"verified_email_date,omitempty"`
+	Premium           bool                 `bson:"premium,omitempty"`
+	PremiumEnds       time.Time            `bson:"premium_ends,omitempty"`
 	Role              string               `bson:"role"` // Add this field
 	Games             map[string]GameStats `bson:"games" json:"games"`
 }

@@ -64,12 +64,14 @@ func GetAuthenticatedUser(c *fiber.Ctx) error {
 
 	// Prepare the user response
 	userResponse := fiber.Map{
-		"name":       user.Name,
-		"avatar":     user.Avatar,
-		"games":      user.Games,
-		"uniqueId":   user.UniqueID,
-		"totalLevel": averageLevel,   // Include total level (average of game levels)
-		"roomCounts": gameRoomCounts, // Include room counts for each game
+		"name":         user.Name,
+		"avatar":       user.Avatar,
+		"games":        user.Games,
+		"uniqueId":     user.UniqueID,
+		"premium":      user.Premium,
+		"premium_ends": user.PremiumEnds,
+		"totalLevel":   averageLevel,   // Include total level (average of game levels)
+		"roomCounts":   gameRoomCounts, // Include room counts for each game
 	}
 
 	// Return the user information and game room counts

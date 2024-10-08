@@ -6,6 +6,7 @@ import (
 	"math/rand"
 	"norex/database"
 	"norex/models"
+	"time"
 
 	"github.com/gofiber/fiber/v2"
 	"go.mongodb.org/mongo-driver/bson"
@@ -16,8 +17,10 @@ func UpdateProfile(c *fiber.Ctx) error {
 	email := c.Locals("email").(string)
 
 	var body struct {
-		Name   string `json:"name"`
-		Gender string `json:"gender"`
+		Name        string    `json:"name"`
+		Gender      string    `json:"gender"`
+		Premium     bool      `json:"premium"`
+		PremiumEnds time.Time `json:"premium_ends"`
 	}
 
 	// Parse the JSON body
@@ -50,10 +53,12 @@ func UpdateProfile(c *fiber.Ctx) error {
 	collection := database.GetCollection("users")
 	update := bson.M{
 		"$set": bson.M{
-			"name":   name,
-			"gender": gender,
-			"avatar": generateAvatar(gender),
-			"games":  defaultGames,
+			"name":         name,
+			"gender":       gender,
+			"avatar":       generateAvatar(gender),
+			"games":        defaultGames,
+			"premium":      false,
+			"premium_ends": nil,
 		},
 	}
 
